@@ -33,6 +33,7 @@ struct [[gnu::packed]] RobotStatus
   uint16_t shooter_cooling_value;    /* 机器人射击热量每秒冷却值 */
   uint16_t shooter_heat_limit;       /* 机器人射击热量上限 */
   uint16_t chassis_power_limit;      /* 机器人底盘功率上限 */
+  float bullet_speed_limit;          /* 射击初速度上限，m/s */
   uint8_t power_gimbal_output : 1;   /* gimbal输出，0为无输出，1为24V输出 */
   uint8_t power_chassis_output : 1;  /* chassis输出，0为无输出，1为24V输出*/
   uint8_t power_launcher_output : 1; /* shooter输出，0为无输出，1为24V 输出 */
@@ -55,41 +56,9 @@ struct [[gnu::packed]] RobotPOS
  */
 struct [[gnu::packed]] RFID
 {
-  uint32_t own_base : 1;                          /*己方基地增益点*/
-  uint32_t own_highland_center : 1;               /*己方中央高地增益点*/
-  uint32_t enemy_highland_center : 1;             /*对方中央高地增益点*/
-  uint32_t own_trapezium : 1;                     /*己方梯形高地增益点*/
-  uint32_t enemy_trapezium : 1;                   /*对方梯形高地增益点*/
-  uint32_t own_slope_before_R1B1 : 1;             /*己方飞坡点（靠近己方一侧飞坡前*/
-  uint32_t own_slope_after_R1B1 : 1;              /*己方飞坡点（靠近己方一侧飞坡后*/
-  uint32_t enemy_slope_before_R4B4 : 1;           /*对方飞坡点（靠近己方一侧飞坡前*/
-  uint32_t enemy_slope_after_R4B4 : 1;            /*对方飞坡点（靠近己方一侧飞坡后*/
-  uint32_t own_terrain_crossing_up_R2B2 : 1;      /*己方地形增益(中央高地下方*/
-  uint32_t own_terrain_crossing_down_R2B2 : 1;    /*己方地形增益(中央高地上方*/
-  uint32_t enemy_terrain_corrssing_up_R2B2 : 1;   /*对方地形增益(中央高地下方*/
-  uint32_t enemy_terrain_corrssing_down_R2B2 : 1; /*对方地形增益(中央高地上*/
-  uint32_t own_terrain_crossing_up_R3B3 : 1;      /*己方地形增益点(公路下方*/
-  uint32_t own_terrain_crossing_down_R3B3 : 1;    /*己方地形增益点(公路上方*/
-  uint32_t enemy_terrain_corrssing_up_R3B5 : 1;   /*对方地形增益点(公路下方*/
-  uint32_t enemy_terrain_corrssing_down_R3B3 : 1; /*对方地形增益(公路上方*/
-  uint32_t own_fortress : 1;                      /*己方堡垒增益点*/
-  uint32_t own_outpost : 1;                       /*己方前哨站增益点*/
-  uint32_t own_blood_supply_unoverlapping : 1;    /*与资源区不重叠的/UL补给区*/
-  uint32_t own_blood_supply_overlapping : 1;      /*己方与资源区重叠的补给区*/
-  uint32_t own_assemble : 1;                      /*己方装配增益点*/
-  uint32_t enemy_assemble : 1;                    /*对方装配增益点*/
-  uint32_t center_resource_RMUL : 1;              /*中心增益点（仅 RMUL 适用）*/
-  uint32_t enemy_fortress : 1;                    /*对方堡垒增益点*/
-  uint32_t enemy_outpost : 1;                     /*对方前哨站增益点*/
-  uint32_t own_tunnel_cross_down : 1;             /*己方隧道增益点（己方一侧公路区下方）*/
-  uint32_t own_tunnel_cross_up : 1;               /*己方隧道增益点（己方一侧公路区上方）*/
-  uint32_t own_tunnel_zrapezium_down : 1;         /*己方隧道增益(己方梯形高地较低处*/
-  uint32_t own_tunnel_zrapezium_up : 1;           /*己方隧道增益(己方梯形高地较高处*/
-  uint32_t enemy_tunnel_cross_down : 1;           /*对方隧道增益（对方一侧公路区下方*/
-  uint32_t enemy_tunnel_cross_up : 1;             /*对方隧道增益（对方一侧公路区上方*/
-
-  uint32_t enemy_tunnel_zrapezium_down : 1; /*对方隧道增益(对方梯形高地低处*/
-  uint32_t enemy_tunnel_zrapezium_up : 1;   /*对方隧道增益(对方梯形高地较高处*/
+  // Protocol 2027 table 1-19: two independent bit masks, not the 2025 bit layout.
+  uint32_t rfid_status;
+  uint16_t rfid_status_2;
 };
 
 /**
@@ -98,10 +67,10 @@ struct [[gnu::packed]] RFID
  */
 struct [[gnu::packed]] RobotPosForSentry
 {
-  float hero_x;       /*己方英雄机器人位置 x 轴坐标，单位：m*/
-  float hero_y;       /*己方英雄机器人位置 y 轴坐标，单位：m*/
-  float engineer_x;   /*己方工程机器人位置 x 轴坐标，单位：m*/
-  float engineer_y;   /*己方工程机器人位置 y 轴坐标，单位：m*/
+  float heavy_x; /*己方重装机器人位置 x 轴坐标，单位：m*/
+  float heavy_y; /*己方重装机器人位置 y 轴坐标，单位：m*/
+  float reserved_x;
+  float reserved_y;
   float standard_3_x; /*己方 3 号步兵机器人位置 x 轴坐标，单位：m*/
   float standard_3_y; /*己方 3 号步兵机器人位置 y 轴坐标，单位：m*/
   float standard_4_x; /*己方 4 号步兵机器人位置 x 轴坐标，单位：m*/
@@ -124,24 +93,39 @@ struct [[gnu::packed]] SentryInfo
   uint32_t risen_cost : 10;            /*哨兵机器人当前若兑换立即复活需要花费的金币数*/
   uint32_t res1 : 1;                   /*保留位*/
 
-  uint32_t current_state : 2;  /*哨兵当前姿态*/
-  uint32_t own_mech_state : 1; /* 己方能量机关是否能进入正在激活状态 */
-  uint32_t res2 : 1;           /*保留位*/
+  uint16_t out_of_combat : 1;
+  uint16_t team_bullet_allowance : 11;
+  uint16_t current_state : 2;
+  uint16_t own_mech_state : 1;
+  uint16_t enhanced_state : 1;
+  uint8_t attack_time;
+  uint8_t defend_time;
+  uint8_t move_time;
+  uint8_t reserved_time;
+  uint8_t enhanced_attack_time;
+  uint8_t enhanced_defend_time;
+  uint8_t enhanced_move_time;
+  uint8_t reserved_enhanced_time;
 };
 
 /**
- * @brief 机器人、比赛与发射相关的裁判系统摘要，紧凑布局共 92 字节。
- *        Referee summary of robot, game and launcher data, 92 bytes in packed layout.
+ * @brief 机器人、比赛与发射相关的裁判系统摘要，紧凑布局共 116 字节。
+ *        Referee summary of robot, game and launcher data, 116 bytes in packed layout.
  */
 struct [[gnu::packed]] RobotGameRefereePack
 {
-  RobotStatus robot_status;     /* 机器人状态 */
-  GameStatus game_status;       /* 比赛信息 */
-  SentryInfo sentry_info;       /*哨兵数据*/
-  RFID rfid;                    /*机器人RFID模块状态*/
-  uint16_t bullet_17_remain;    /*  17mm 弹丸允许发弹量 */
-  uint16_t our_outpose;         /* 己方前哨站 */
-  uint16_t red_base;            /* 己方基地 */
+  RobotStatus robot_status;  /* 机器人状态 */
+  GameStatus game_status;    /* 比赛信息 */
+  SentryInfo sentry_info;    /*哨兵数据*/
+  RFID rfid;                 /*机器人RFID模块状态*/
+  uint16_t bullet_17_remain; /*  17mm 弹丸允许发弹量 */
+  uint16_t outpost_r_hp;     /* R/B refer to the initial field side, not allegiance. */
+  uint16_t outpost_b_hp;
+  uint16_t ally_base_hp;
+  uint16_t enemy_base_hp;
+  int16_t damage_difference;
+  uint16_t ally_control_degree;
+  uint16_t enemy_control_degree;
   RobotPosForSentry sentry_pos; /* 0x020B */
   RobotPOS robot_pos;
 };
